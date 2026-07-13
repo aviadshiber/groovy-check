@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security Vulnerability
+    url: https://github.com/aviadshiber/groovy-check/blob/main/.github/SECURITY.md
+    about: Report security vulnerabilities privately via the security policy
