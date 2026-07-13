@@ -1,0 +1,11 @@
+title = "gitleaks config for groovy-check"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Skip generated/dependency files and test files with no real secrets"
+paths = [
+  '''go\.(mod|sum)$''',
+  '''(.*?)_test\.go$''',
+]
