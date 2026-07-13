@@ -1,4 +1,5 @@
-groovy-check
+bin/
+dist/
 *.zip
 docs/superpowers/
 .superpowers/
