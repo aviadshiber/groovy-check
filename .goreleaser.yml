@@ -1,0 +1,78 @@
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: groovy-check
+    main: ./
+    binary: groovy-check
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.ShortCommit}}
+      - -X main.date={{.Date}}
+
+archives:
+  - id: groovy-check-archives
+    format: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: "checksums.txt"
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "^ci:"
+
+brews:
+  - repository:
+      owner: aviadshiber
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+      branch: "groovy-check-{{.Version}}"
+      pull_request:
+        enabled: true
+        base:
+          owner: aviadshiber
+          name: homebrew-tap
+          branch: main
+    commit_author:
+      name: goreleaser
+      email: goreleaser@users.noreply.github.com
+    commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Version }}"
+    directory: Formula
+    homepage: "https://github.com/aviadshiber/groovy-check"
+    description: "Lint Groovy/Jenkinsfile code locally and validate declarative pipeline syntax against a live Jenkins server"
+    license: "MIT"
+    install: |
+      bin.install "groovy-check"
+    test: |
+      system "#{bin}/groovy-check", "version"
