@@ -1,0 +1,4 @@
+groovy-check
+*.zip
+docs/superpowers/
+.superpowers/
