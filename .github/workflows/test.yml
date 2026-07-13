@@ -33,7 +33,7 @@ jobs:
         run: go vet ./...
 
       - name: Lint
-        uses: golangci-lint/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v6
         with:
           version: latest
 
