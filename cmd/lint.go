@@ -90,18 +90,20 @@ func buildLintCommand(path string, jsonOut, fix bool) (cmd *exec.Cmd, cleanup fu
 		"--config", configPath,
 	}
 
-	if info, statErr := os.Stat(absPath); statErr == nil && !info.IsDir() {
-		lintArgs = append(lintArgs, "--path", filepath.Dir(absPath), "--files", filepath.Base(absPath))
-	} else {
-		lintArgs = append(lintArgs, "--path", absPath)
-	}
-
 	if jsonOut {
 		lintArgs = append(lintArgs, "--output", "json")
 	}
 	if fix {
 		lintArgs = append(lintArgs, "--fix")
 	}
+
+	// npm-groovy-lint's --path/--files flags are documented as deprecated
+	// and, empirically, do not reliably scope to a single named file even
+	// when passed together (verified: --files <exact-basename> still lints
+	// every default-pattern-matching file in --path's directory). A bare
+	// positional argument is the documented, verified-working way to lint
+	// either a single file or a directory.
+	lintArgs = append(lintArgs, absPath)
 
 	c := exec.Command("npx", lintArgs...)
 	c.Dir = scratch

@@ -9,7 +9,7 @@ import (
 	"github.com/aviadshiber/groovy-check/internal/lintconfig"
 )
 
-func TestBuildLintCommand_FilePath(t *testing.T) {
+func TestBuildLintCommand_FilePathPassedPositionally(t *testing.T) {
 	dir := t.TempDir()
 	filePath := filepath.Join(dir, "Sample.groovy")
 	if err := os.WriteFile(filePath, []byte("def foo() { return 1 }\n"), 0o644); err != nil {
@@ -22,11 +22,19 @@ func TestBuildLintCommand_FilePath(t *testing.T) {
 	}
 	t.Cleanup(cleanup)
 
-	assertArgsContainInOrder(t, c.Args, "--path", dir)
-	assertArgsContainInOrder(t, c.Args, "--files", "Sample.groovy")
+	// npm-groovy-lint's --path/--files flags are deprecated and, verified
+	// empirically, do not reliably scope to a single named file (they still
+	// lint every default-pattern-matching file in --path's directory). The
+	// only reliable single-file scoping is a bare positional argument.
+	if containsArg(c.Args, "--path") || containsArg(c.Args, "--files") {
+		t.Errorf("expected no --path/--files flags (deprecated, unreliable for scoping), got args %v", c.Args)
+	}
+	if c.Args[len(c.Args)-1] != filePath {
+		t.Errorf("expected the absolute file path as the last (positional) arg, got args %v", c.Args)
+	}
 }
 
-func TestBuildLintCommand_DirectoryPath(t *testing.T) {
+func TestBuildLintCommand_DirectoryPathPassedPositionally(t *testing.T) {
 	dir := t.TempDir()
 
 	c, cleanup, err := buildLintCommand(dir, false, false)
@@ -35,9 +43,11 @@ func TestBuildLintCommand_DirectoryPath(t *testing.T) {
 	}
 	t.Cleanup(cleanup)
 
-	assertArgsContainInOrder(t, c.Args, "--path", dir)
-	if containsArg(c.Args, "--files") {
-		t.Errorf("expected no --files flag for a directory path, got args %v", c.Args)
+	if containsArg(c.Args, "--path") || containsArg(c.Args, "--files") {
+		t.Errorf("expected no --path/--files flags, got args %v", c.Args)
+	}
+	if c.Args[len(c.Args)-1] != dir {
+		t.Errorf("expected the absolute directory path as the last (positional) arg, got args %v", c.Args)
 	}
 }
 
@@ -47,9 +57,9 @@ func TestBuildLintCommand_RelativePathResolvedToAbsolute(t *testing.T) {
 	if err := os.WriteFile(filePath, []byte("def foo() { return 1 }\n"), 0o644); err != nil {
 		t.Fatalf("setup: %v", err)
 	}
-	wantDir, err := filepath.EvalSymlinks(dir)
+	wantPath, err := filepath.EvalSymlinks(filePath)
 	if err != nil {
-		t.Fatalf("EvalSymlinks(%q): %v", dir, err)
+		t.Fatalf("EvalSymlinks(%q): %v", filePath, err)
 	}
 
 	chdir(t, dir)
@@ -60,25 +70,23 @@ func TestBuildLintCommand_RelativePathResolvedToAbsolute(t *testing.T) {
 	}
 	t.Cleanup(cleanup)
 
-	gotDir := findArgValue(c.Args, "--path")
-	if gotDir == "" || !filepath.IsAbs(gotDir) {
-		t.Fatalf("expected --path to be resolved to an absolute path, got %q", gotDir)
+	gotPath := c.Args[len(c.Args)-1]
+	if gotPath == "" || !filepath.IsAbs(gotPath) {
+		t.Fatalf("expected the positional arg to be resolved to an absolute path, got %q", gotPath)
 	}
-	gotDirResolved, err := filepath.EvalSymlinks(gotDir)
+	gotPathResolved, err := filepath.EvalSymlinks(gotPath)
 	if err != nil {
-		t.Fatalf("EvalSymlinks(%q): %v", gotDir, err)
+		t.Fatalf("EvalSymlinks(%q): %v", gotPath, err)
 	}
-	if gotDirResolved != wantDir {
-		t.Errorf("expected --path to resolve the relative input against the cwd (%q), got %q", wantDir, gotDirResolved)
+	if gotPathResolved != wantPath {
+		t.Errorf("expected the relative input to resolve against the cwd to %q, got %q", wantPath, gotPathResolved)
 	}
-	assertArgsContainInOrder(t, c.Args, "--files", "Sample.groovy")
 }
 
 // TestBuildLintCommand_SecurityInvariantsHoldForBothInputShapes proves the
 // three security-critical properties (neutral+unique cwd, locked-down
 // config scoped inside that cwd, pinned linter version) hold regardless of
-// whether the caller passes a file or a directory — a prior version of
-// this suite only checked each property against one shape.
+// whether the caller passes a file or a directory.
 func TestBuildLintCommand_SecurityInvariantsHoldForBothInputShapes(t *testing.T) {
 	dir := t.TempDir()
 	filePath := filepath.Join(dir, "Sample.groovy")
